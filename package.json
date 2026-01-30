@@ -1,0 +1,22 @@
+{
+  "name": "do-you-know-what-you-did",
+  "version": "0.1.0",
+  "description": "Git pre-push quiz to confirm what changed",
+  "type": "commonjs",
+  "bin": {
+    "do-you-know-what-you-did": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "minimatch": "^9.0.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "typescript": "^5.5.4",
+    "vitest": "^1.6.0"
+  }
+}
