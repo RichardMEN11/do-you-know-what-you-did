@@ -408,10 +408,19 @@ function getPromptIO(config: Config): { input: NodeJS.ReadStream; output: NodeJS
   }
 }
 
+function writeOut(output: NodeJS.WriteStream, text: string): void {
+  if (output.writableEnded || output.destroyed) {
+    process.stdout.write(text);
+    return;
+  }
+  output.write(text);
+}
+
 async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
   const io = getPromptIO(config);
   if (!io) return config.allowFailOpen;
-  const { input, output } = io;
+  const { input } = io;
+  let output = io.output;
   let score = 0;
 
   for (let index = 0; index < quiz.questions.length; index++) {
@@ -423,9 +432,9 @@ async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
     const correctText = q.options[q.correct];
     const correctIndex = shuffledTexts.findIndex((t) => t === correctText);
     const correctKey = correctIndex >= 0 ? labels[correctIndex] : q.correct;
-    output.write("\x1b[2J\x1b[H");
-    output.write(`Question ${index + 1}/${quiz.questions.length}\n`);
-    output.write(`${renderProgress(index + 1, quiz.questions.length)}\n\n`);
+    writeOut(output, "\x1b[2J\x1b[H");
+    writeOut(output, `Question ${index + 1}/${quiz.questions.length}\n`);
+    writeOut(output, `${renderProgress(index + 1, quiz.questions.length)}\n\n`);
 
     const answer = await select<"A" | "B" | "C" | "D">(
       {
@@ -436,14 +445,16 @@ async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
       { input, output }
     );
 
+    if (output.writableEnded || output.destroyed) output = process.stdout;
+
     const correct = answer === correctKey;
     if (correct) score += 1;
-    output.write(`${correct ? "Correct!" : "Not quite."}\n`);
-    output.write(`Correct answer: ${correctKey}\n`);
-    output.write(`Explanation: ${q.explanation}\n\n`);
+    writeOut(output, `${correct ? "Correct!" : "Not quite."}\n`);
+    writeOut(output, `Correct answer: ${correctKey}\n`);
+    writeOut(output, `Explanation: ${q.explanation}\n\n`);
   }
 
-  output.write(`Score: ${score}/${quiz.questions.length}\n`);
+  writeOut(output, `Score: ${score}/${quiz.questions.length}\n`);
   return score >= config.passScore;
 }
 
