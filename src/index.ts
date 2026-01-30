@@ -1,9 +1,18 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 import { spawnSync } from "child_process";
-import { readFileSync, writeFileSync, existsSync, chmodSync, mkdirSync, unlinkSync } from "fs";
+import {
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  chmodSync,
+  mkdirSync,
+  unlinkSync,
+  openSync
+} from "fs";
 import { join } from "path";
 import readline from "readline";
+import tty from "tty";
 import { quizSchema, Quiz } from "./schema";
 import { buildCacheKey, isAllZeroSha, truncateDiff } from "./lib";
 
@@ -386,14 +395,27 @@ function shuffleOptions(values: string[]): string[] {
 }
 
 async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.warn("Non-interactive terminal detected. Skipping quiz.");
-    return config.allowFailOpen;
+  let input: NodeJS.ReadStream;
+  let output: NodeJS.WriteStream;
+
+  if (process.stdin.isTTY && process.stdout.isTTY) {
+    input = process.stdin;
+    output = process.stdout;
+  } else {
+    try {
+      const ttyIn = openSync("/dev/tty", "r");
+      const ttyOut = openSync("/dev/tty", "w");
+      input = new tty.ReadStream(ttyIn);
+      output = new tty.WriteStream(ttyOut);
+    } catch {
+      console.warn("Non-interactive terminal detected. Skipping quiz.");
+      return config.allowFailOpen;
+    }
   }
 
-  readline.emitKeypressEvents(process.stdin);
-  if (process.stdin.isTTY) process.stdin.setRawMode(true);
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  readline.emitKeypressEvents(input);
+  if (input.isTTY) input.setRawMode(true);
+  const rl = readline.createInterface({ input, output });
   let score = 0;
 
   for (let index = 0; index < quiz.questions.length; index++) {
@@ -411,17 +433,16 @@ async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
     const progressLine = renderProgress(index + 1, quiz.questions.length);
 
     const render = () => {
-      process.stdout.write("\x1b[2J\x1b[H");
-      console.log(header);
-      console.log(progressLine);
-      console.log("");
-      console.log(q.question);
+      output!.write("\x1b[2J\x1b[H");
+      output!.write(`${header}\n`);
+      output!.write(`${progressLine}\n\n`);
+      output!.write(`${q.question}\n`);
       for (let i = 0; i < options.length; i++) {
         const [key, text] = options[i];
         const prefix = i === idx ? ">" : " ";
-        console.log(`${prefix} ${key}) ${text}`);
+        output!.write(`${prefix} ${key}) ${text}\n`);
       }
-      console.log("Use ↑/↓ or A/B/C/D. Press Enter to lock in.");
+      output!.write("Use ↑/↓ or A/B/C/D. Press Enter to lock in.\n");
     };
 
     render();
@@ -439,7 +460,7 @@ async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
           return;
         }
         if (key.name === "return" || key.name === "enter") {
-          process.stdin.off("keypress", onKey);
+          input!.off("keypress", onKey);
           resolve(options[idx][0]);
           return;
         }
@@ -451,20 +472,20 @@ async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
           return;
         }
       };
-      process.stdin.on("keypress", onKey);
+      input!.on("keypress", onKey);
     });
 
     const correct = answer === correctKey;
     if (correct) score += 1;
-    console.log(correct ? "Correct!" : "Not quite.");
-    console.log(`Correct answer: ${correctKey}`);
-    console.log(`Explanation: ${q.explanation}`);
+    output!.write(`${correct ? "Correct!" : "Not quite."}\n`);
+    output!.write(`Correct answer: ${correctKey}\n`);
+    output!.write(`Explanation: ${q.explanation}\n`);
   }
 
   rl.close();
-  if (process.stdin.isTTY) process.stdin.setRawMode(false);
+  if (input.isTTY) input.setRawMode(false);
 
-  console.log(`\nScore: ${score}/${quiz.questions.length}`);
+  output!.write(`\nScore: ${score}/${quiz.questions.length}\n`);
   return score >= config.passScore;
 }
 
