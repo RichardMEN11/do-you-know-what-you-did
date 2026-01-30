@@ -1,16 +1,30 @@
 # do-you-know-what-you-did
 
-Git pre-push quiz that asks 3 multiple-choice questions about what you changed.
+Push code. Get a pop quiz. Live your best life.
 
-## Install
+This is a Git pre-push hook that asks you 3 multiple‑choice questions about **your actual diff**. If you can’t answer at least 2, the push gets benched. It’s like a seatbelt for “wait, what did I change again?” moments.
+
+## Why this exists (AI edition)
+
+We vibe‑code. AI vibes back. And sometimes nobody knows what *actually* changed.
+
+This tool exists to:
+- stop “ship it, idk what I did” moments
+- make AI‑generated changes legible
+- turn every push into a tiny learning moment
+
+It’s less “gotcha” and more “wait, what did the model do?”
+
+## Quick Start
 
 ```bash
 npm install
 npm run build
 npm link
+do-you-know-what-you-did install
 ```
 
-## Configure environment
+## The Magic Ingredient
 
 ```bash
 export OPENAI_API_KEY=... # required
@@ -18,25 +32,19 @@ export OPENAI_API_KEY=... # required
 export OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-## Install the hook
-
-```bash
-do-you-know-what-you-did install
-```
-
-## Run manually
+## Run It By Hand (for fun or debugging)
 
 ```bash
 do-you-know-what-you-did run
 ```
 
-## Bypass
+## I Am In A Hurry (the escape hatch)
 
 ```bash
 git push --no-verify
 ```
 
-## Configuration
+## Configuration (make it your vibe)
 
 Create `.do-you-know-what-you-did.json` in the repo root:
 
@@ -50,6 +58,6 @@ Create `.do-you-know-what-you-did.json` in the repo root:
 }
 ```
 
-## Cache
+## Cache (fewer API calls, more snacks)
 
-The generated quiz is cached at `.git/do-you-know-what-you-did-cache.json` and reused for repeat pushes of the same commit range.
+Generated quizzes are cached at `.git/do-you-know-what-you-did-cache.json` and reused for repeat pushes of the same commit range.
