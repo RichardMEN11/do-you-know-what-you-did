@@ -81,6 +81,31 @@ function loadConfig(repoRoot: string, debug = false): Config {
   }
 }
 
+function loadEnvFile(repoRoot: string, debug = false): void {
+  const envPath = join(repoRoot, ".env");
+  if (!existsSync(envPath)) return;
+  try {
+    const raw = readFileSync(envPath, "utf8");
+    const lines = raw.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const idx = trimmed.indexOf("=");
+      if (idx === -1) continue;
+      const key = trimmed.slice(0, idx).trim();
+      let value = trimmed.slice(idx + 1).trim();
+      if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      if (!process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+  } catch (err) {
+    if (debug) console.error(`[debug] Failed to read .env: ${String(err)}`);
+  }
+}
+
 function parsePrePushStdin(input: string): PrePushLine[] {
   const lines = input
     .split("\n")
@@ -241,6 +266,22 @@ async function callLLM(prompt: string, config: Config, debug = false): Promise<Q
   throw new Error(lastError || "LLM response invalid");
 }
 
+function startSpinner(label: string): () => void {
+  const frames = ["|", "/", "-", "\\"];
+  let i = 0;
+  process.stdout.write(`${frames[i]} ${label}`);
+  const id = setInterval(() => {
+    i = (i + 1) % frames.length;
+    process.stdout.write(`\r${frames[i]} ${label}`);
+  }, 80);
+  return () => {
+    clearInterval(id);
+    process.stdout.write("\r");
+    process.stdout.write(" ".repeat(label.length + 2));
+    process.stdout.write("\r");
+  };
+}
+
 async function getDiffForLine(
   line: PrePushLine,
   config: Config,
@@ -326,42 +367,102 @@ function saveCache(path: string, key: string, quiz: Quiz): void {
   writeFileSync(path, JSON.stringify({ key, quiz }, null, 2), "utf8");
 }
 
+function renderProgress(current: number, total: number): string {
+  const width = 20;
+  const filled = Math.round((current / total) * width);
+  const bar = "#".repeat(filled) + "-".repeat(width - filled);
+  return `Progress: [${bar}] ${current}/${total}`;
+}
+
+function shuffleOptions(values: string[]): string[] {
+  const copy = values.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = temp;
+  }
+  return copy;
+}
+
 async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.warn("Non-interactive terminal detected. Skipping quiz.");
     return config.allowFailOpen;
   }
 
+  readline.emitKeypressEvents(process.stdin);
+  if (process.stdin.isTTY) process.stdin.setRawMode(true);
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   let score = 0;
 
-  const ask = (q: string) =>
-    new Promise<string>((resolve) => rl.question(q, (answer) => resolve(answer.trim())));
+  for (let index = 0; index < quiz.questions.length; index++) {
+    const q = quiz.questions[index];
+    const labels: Array<"A" | "B" | "C" | "D"> = ["A", "B", "C", "D"];
+    const baseTexts = [q.options.A, q.options.B, q.options.C, q.options.D];
+    const shuffledTexts = shuffleOptions(baseTexts);
+    const options: Array<["A" | "B" | "C" | "D", string]> = shuffledTexts.map((t, i) => [labels[i], t]);
+    const correctText = q.options[q.correct];
+    const correctIndex = shuffledTexts.findIndex((t) => t === correctText);
+    const correctKey = correctIndex >= 0 ? labels[correctIndex] : q.correct;
+    let idx = 0;
 
-  for (const q of quiz.questions) {
-    console.log(`\n${q.question}`);
-    console.log(`A) ${q.options.A}`);
-    console.log(`B) ${q.options.B}`);
-    console.log(`C) ${q.options.C}`);
-    console.log(`D) ${q.options.D}`);
+    const header = `Question ${index + 1}/${quiz.questions.length}`;
+    const progressLine = renderProgress(index + 1, quiz.questions.length);
 
-    let answer = "";
-    while (true) {
-      const raw = await ask("Your answer (A/B/C/D): ");
-      const normalized = raw.toUpperCase();
-      if (["A", "B", "C", "D"].includes(normalized)) {
-        answer = normalized;
-        break;
+    const render = () => {
+      process.stdout.write("\x1b[2J\x1b[H");
+      console.log(header);
+      console.log(progressLine);
+      console.log("");
+      console.log(q.question);
+      for (let i = 0; i < options.length; i++) {
+        const [key, text] = options[i];
+        const prefix = i === idx ? ">" : " ";
+        console.log(`${prefix} ${key}) ${text}`);
       }
-      console.log("Please enter A, B, C, or D.");
-    }
+      console.log("Use ↑/↓ or A/B/C/D. Press Enter to lock in.");
+    };
 
-    if (answer === q.correct) score += 1;
-    console.log(`Correct answer: ${q.correct}`);
+    render();
+
+    const answer: "A" | "B" | "C" | "D" = await new Promise((resolve) => {
+      const onKey = (_str: string, key: readline.Key) => {
+        if (key.name === "up") {
+          idx = (idx + options.length - 1) % options.length;
+          render();
+          return;
+        }
+        if (key.name === "down") {
+          idx = (idx + 1) % options.length;
+          render();
+          return;
+        }
+        if (key.name === "return" || key.name === "enter") {
+          process.stdin.off("keypress", onKey);
+          resolve(options[idx][0]);
+          return;
+        }
+        const upper = (_str || "").toUpperCase();
+        const letterIdx = options.findIndex((o) => o[0] === upper);
+        if (letterIdx >= 0) {
+          idx = letterIdx;
+          render();
+          return;
+        }
+      };
+      process.stdin.on("keypress", onKey);
+    });
+
+    const correct = answer === correctKey;
+    if (correct) score += 1;
+    console.log(correct ? "Correct!" : "Not quite.");
+    console.log(`Correct answer: ${correctKey}`);
     console.log(`Explanation: ${q.explanation}`);
   }
 
   rl.close();
+  if (process.stdin.isTTY) process.stdin.setRawMode(false);
 
   console.log(`\nScore: ${score}/${quiz.questions.length}`);
   return score >= config.passScore;
@@ -374,6 +475,7 @@ async function handleRun(debug = false): Promise<number> {
   }
 
   const repoRoot = getRepoRoot(debug);
+  loadEnvFile(repoRoot, debug);
   const config = loadConfig(repoRoot, debug);
   const stdin = process.stdin.isTTY ? "" : readFileSync(0, "utf8");
   const lines = parsePrePushStdin(stdin);
@@ -434,7 +536,12 @@ async function handleRun(debug = false): Promise<number> {
     if (debug) console.error("[debug] Using cached quiz");
   } else {
     try {
-      quiz = await callLLM(prompt, config, debug);
+      const stop = startSpinner("Generating quiz…");
+      try {
+        quiz = await callLLM(prompt, config, debug);
+      } finally {
+        stop();
+      }
       saveCache(cacheFile, key, quiz);
     } catch (err) {
       const msg = `Quiz generation failed: ${String(err)}`;

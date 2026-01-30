@@ -27,9 +27,10 @@ do-you-know-what-you-did install
 ## The Magic Ingredient
 
 ```bash
-export OPENAI_API_KEY=... # required
+# Put this in .env (repo root)
+OPENAI_API_KEY=... # required
 # optional for OpenAI-compatible providers
-export OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
 ## Run It By Hand (for fun or debugging)
