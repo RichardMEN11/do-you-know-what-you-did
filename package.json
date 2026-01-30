@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@inquirer/prompts": "^5.3.2",
     "minimatch": "^9.0.5",
     "zod": "^3.23.8"
   },

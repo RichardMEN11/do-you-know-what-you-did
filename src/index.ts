@@ -11,8 +11,8 @@ import {
   openSync
 } from "fs";
 import { join } from "path";
-import readline from "readline";
 import tty from "tty";
+import { select } from "@inquirer/prompts";
 import { quizSchema, Quiz } from "./schema";
 import { buildCacheKey, isAllZeroSha, truncateDiff } from "./lib";
 
@@ -394,28 +394,24 @@ function shuffleOptions(values: string[]): string[] {
   return copy;
 }
 
-async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
-  let input: NodeJS.ReadStream;
-  let output: NodeJS.WriteStream;
-
+function getPromptIO(config: Config): { input: NodeJS.ReadStream; output: NodeJS.WriteStream } | null {
   if (process.stdin.isTTY && process.stdout.isTTY) {
-    input = process.stdin;
-    output = process.stdout;
-  } else {
-    try {
-      const ttyIn = openSync("/dev/tty", "r");
-      const ttyOut = openSync("/dev/tty", "w");
-      input = new tty.ReadStream(ttyIn);
-      output = new tty.WriteStream(ttyOut);
-    } catch {
-      console.warn("Non-interactive terminal detected. Skipping quiz.");
-      return config.allowFailOpen;
-    }
+    return { input: process.stdin, output: process.stdout };
   }
+  try {
+    const ttyIn = openSync("/dev/tty", "r");
+    const ttyOut = openSync("/dev/tty", "w");
+    return { input: new tty.ReadStream(ttyIn), output: new tty.WriteStream(ttyOut) };
+  } catch {
+    console.warn("Non-interactive terminal detected. Skipping quiz.");
+    return config.allowFailOpen ? null : null;
+  }
+}
 
-  readline.emitKeypressEvents(input);
-  if (input.isTTY) input.setRawMode(true);
-  const rl = readline.createInterface({ input, output });
+async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
+  const io = getPromptIO(config);
+  if (!io) return config.allowFailOpen;
+  const { input, output } = io;
   let score = 0;
 
   for (let index = 0; index < quiz.questions.length; index++) {
@@ -427,65 +423,27 @@ async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
     const correctText = q.options[q.correct];
     const correctIndex = shuffledTexts.findIndex((t) => t === correctText);
     const correctKey = correctIndex >= 0 ? labels[correctIndex] : q.correct;
-    let idx = 0;
+    output.write("\x1b[2J\x1b[H");
+    output.write(`Question ${index + 1}/${quiz.questions.length}\n`);
+    output.write(`${renderProgress(index + 1, quiz.questions.length)}\n\n`);
 
-    const header = `Question ${index + 1}/${quiz.questions.length}`;
-    const progressLine = renderProgress(index + 1, quiz.questions.length);
-
-    const render = () => {
-      output!.write("\x1b[2J\x1b[H");
-      output!.write(`${header}\n`);
-      output!.write(`${progressLine}\n\n`);
-      output!.write(`${q.question}\n`);
-      for (let i = 0; i < options.length; i++) {
-        const [key, text] = options[i];
-        const prefix = i === idx ? ">" : " ";
-        output!.write(`${prefix} ${key}) ${text}\n`);
-      }
-      output!.write("Use ↑/↓ or A/B/C/D. Press Enter to lock in.\n");
-    };
-
-    render();
-
-    const answer: "A" | "B" | "C" | "D" = await new Promise((resolve) => {
-      const onKey = (_str: string, key: readline.Key) => {
-        if (key.name === "up") {
-          idx = (idx + options.length - 1) % options.length;
-          render();
-          return;
-        }
-        if (key.name === "down") {
-          idx = (idx + 1) % options.length;
-          render();
-          return;
-        }
-        if (key.name === "return" || key.name === "enter") {
-          input!.off("keypress", onKey);
-          resolve(options[idx][0]);
-          return;
-        }
-        const upper = (_str || "").toUpperCase();
-        const letterIdx = options.findIndex((o) => o[0] === upper);
-        if (letterIdx >= 0) {
-          idx = letterIdx;
-          render();
-          return;
-        }
-      };
-      input!.on("keypress", onKey);
-    });
+    const answer = await select<"A" | "B" | "C" | "D">(
+      {
+        message: q.question,
+        choices: options.map(([key, text]) => ({ name: `${key}) ${text}`, value: key })),
+        loop: false
+      },
+      { input, output }
+    );
 
     const correct = answer === correctKey;
     if (correct) score += 1;
-    output!.write(`${correct ? "Correct!" : "Not quite."}\n`);
-    output!.write(`Correct answer: ${correctKey}\n`);
-    output!.write(`Explanation: ${q.explanation}\n`);
+    output.write(`${correct ? "Correct!" : "Not quite."}\n`);
+    output.write(`Correct answer: ${correctKey}\n`);
+    output.write(`Explanation: ${q.explanation}\n\n`);
   }
 
-  rl.close();
-  if (input.isTTY) input.setRawMode(false);
-
-  output!.write(`\nScore: ${score}/${quiz.questions.length}\n`);
+  output.write(`Score: ${score}/${quiz.questions.length}\n`);
   return score >= config.passScore;
 }
 
@@ -557,7 +515,7 @@ async function handleRun(debug = false): Promise<number> {
     if (debug) console.error("[debug] Using cached quiz");
   } else {
     try {
-      const stop = startSpinner("Generating quiz…");
+      const stop = startSpinner("Generating quiz...");
       try {
         quiz = await callLLM(prompt, config, debug);
       } finally {
