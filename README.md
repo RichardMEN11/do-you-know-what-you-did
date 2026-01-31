@@ -19,9 +19,7 @@ It’s less “gotcha” and more “wait, what did the model do?”
 ## Quick Start
 
 ```bash
-npm install
-npm run build
-npm link
+npm install -g do-you-know-what-you-did
 do-you-know-what-you-did install
 ```
 
