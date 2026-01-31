@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Git pre-push quiz to confirm what changed",
   "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "bin": {
     "do-you-know-what-you-did": "dist/index.js"
   },
@@ -12,6 +15,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
     "test": "vitest run"
   },
   "dependencies": {

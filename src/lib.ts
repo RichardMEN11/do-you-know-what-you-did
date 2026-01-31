@@ -11,8 +11,9 @@ export function buildCacheKey(input: {
   range: string;
   model: string;
   maxDiffChars: number;
+  excludeFiles: string[];
 }): string {
-  const raw = `${input.range}|${input.model}|${input.maxDiffChars}`;
+  const raw = `${input.range}|${input.model}|${input.maxDiffChars}|${input.excludeFiles.join(",")}`;
   return createHash("sha256").update(raw).digest("hex");
 }
 

@@ -112,6 +112,7 @@ async function handleRun(debug = false): Promise<number> {
     range: diffBundle.rangeLabel,
     model: config.model,
     maxDiffChars: config.maxDiffChars,
+    excludeFiles: config.excludeFiles,
   });
 
   const cacheFile = cachePath(debug);
