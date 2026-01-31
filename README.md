@@ -1,14 +1,13 @@
 # do-you-know-what-you-did
 
-Push code. Get a pop quiz. Live your best life.
-
 This is a Git pre-push hook that asks you 3 multiple‑choice questions about **your actual diff**. If you can’t answer at least 2, the push gets benched. It’s like a seatbelt for “wait, what did I change again?” moments.
 
-## Why this exists (AI edition)
+## Why this exists
 
-We vibe‑code. AI vibes back. And sometimes nobody knows what *actually* changed.
+We vibe‑code. And sometimes nobody knows what _actually_ changed and maybe also why.
 
 This tool exists to:
+
 - stop “ship it, idk what I did” moments
 - make AI‑generated changes legible
 - turn every push into a tiny learning moment
@@ -33,13 +32,13 @@ OPENAI_API_KEY=... # required
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-## Run It By Hand (for fun or debugging)
+## Run It By Hand
 
 ```bash
 do-you-know-what-you-did run
 ```
 
-## I Am In A Hurry (the escape hatch)
+## I Am In A Hurry
 
 ```bash
 git push --no-verify
@@ -59,6 +58,6 @@ Create `.do-you-know-what-you-did.json` in the repo root:
 }
 ```
 
-## Cache (fewer API calls, more snacks)
+## Cache
 
 Generated quizzes are cached at `.git/do-you-know-what-you-did-cache.json` and reused for repeat pushes of the same commit range.
