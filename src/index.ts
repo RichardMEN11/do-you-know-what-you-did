@@ -32,18 +32,34 @@ Options:
 
 function handleInstall(debug = false): number {
   const hookPath = getGitPath('hooks/pre-push', debug);
-  const contents = '#!/bin/sh\nexec do-you-know-what-you-did run "$@"\n';
-  if (existsSync(hookPath)) {
-    const existing = readFileSync(hookPath, 'utf8');
-    if (existing !== contents) {
-      const backupPath = `${hookPath}.bak`;
-      writeFileSync(backupPath, existing, 'utf8');
-      console.warn(`Existing pre-push hook backed up to ${backupPath}`);
-    }
+  const marker = '# do-you-know-what-you-did';
+  const header = '#!/bin/sh\n';
+  const snippet = `${marker}\nexec do-you-know-what-you-did run "$@"\n`;
+  if (!existsSync(hookPath)) {
+    writeFileSync(hookPath, `${header}${snippet}`, 'utf8');
+    chmodSync(hookPath, 0o755);
+    console.log(`Installed pre-push hook at ${hookPath}`);
+    return 0;
   }
-  writeFileSync(hookPath, contents, 'utf8');
+
+  const existing = readFileSync(hookPath, 'utf8');
+  if (existing.includes(marker)) {
+    console.log(`Pre-push hook already contains ${marker}`);
+    return 0;
+  }
+
+  const backupPath = `${hookPath}.bak`;
+  writeFileSync(backupPath, existing, 'utf8');
+  console.warn(`Existing pre-push hook backed up to ${backupPath}`);
+
+  const trimmed = existing.replace(/^\uFEFF?/, '');
+  const hasShebang = trimmed.startsWith('#!');
+  const updated = hasShebang
+    ? `${trimmed.trimEnd()}\n\n${snippet}`
+    : `${header}${trimmed.trimEnd()}\n\n${snippet}`;
+  writeFileSync(hookPath, updated, 'utf8');
   chmodSync(hookPath, 0o755);
-  console.log(`Installed pre-push hook at ${hookPath}`);
+  console.log(`Updated pre-push hook at ${hookPath}`);
   return 0;
 }
 
