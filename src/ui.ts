@@ -27,7 +27,7 @@ function renderProgress(current: number, total: number): string {
   return `Progress: [${bar}] ${current}/${total}`;
 }
 
-function shuffleOptions(values: string[]): string[] {
+function shuffleOptions<T>(values: T[]): T[] {
   const copy = values.slice();
   for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -70,11 +70,18 @@ export async function runQuiz(quiz: Quiz, config: Config): Promise<boolean> {
   for (let index = 0; index < quiz.questions.length; index++) {
     const q = quiz.questions[index];
     const labels: Array<"A" | "B" | "C" | "D"> = ["A", "B", "C", "D"];
-    const baseTexts = [q.options.A, q.options.B, q.options.C, q.options.D];
-    const shuffledTexts = shuffleOptions(baseTexts);
-    const options: Array<["A" | "B" | "C" | "D", string]> = shuffledTexts.map((t, i) => [labels[i], t]);
-    const correctText = q.options[q.correct];
-    const correctIndex = shuffledTexts.findIndex((t) => t === correctText);
+    const baseEntries: Array<[keyof typeof q.options, string]> = [
+      ["A", q.options.A],
+      ["B", q.options.B],
+      ["C", q.options.C],
+      ["D", q.options.D]
+    ];
+    const shuffledEntries = shuffleOptions(baseEntries);
+    const options: Array<["A" | "B" | "C" | "D", string]> = shuffledEntries.map((entry, i) => [
+      labels[i],
+      entry[1]
+    ]);
+    const correctIndex = shuffledEntries.findIndex(([key]) => key === q.correct);
     const correctKey = correctIndex >= 0 ? labels[correctIndex] : q.correct;
 
     writeOut(output, "\x1b[2J\x1b[H");
