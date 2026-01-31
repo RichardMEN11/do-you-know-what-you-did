@@ -14,7 +14,7 @@ export async function callLLM(
   const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
 
   const system =
-    'You are a code review assistant. Generate exactly 3 multiple-choice questions about the diff. The goal is to check if the developer really understood what they did.' +
+    'You are a code review assistant. Generate exactly 3 multiple-choice questions about the diff. Focus on the why not the what.' +
     'Return JSON only matching the provided schema. Each explanation must mention a filename and what changed.';
 
   let lastError: string | null = null;
