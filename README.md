@@ -2,6 +2,8 @@
 
 This is a Git pre-push hook that asks you 3 multiple‑choice questions about **your actual diff**. If you can’t answer at least 2, the push gets benched. It’s like a seatbelt for “wait, what did I change again?” moments.
 
+> Status: experimental (use at your own risk).
+
 ## Why this exists
 
 We vibe‑code. And sometimes nobody knows what _actually_ changed and maybe also why.
