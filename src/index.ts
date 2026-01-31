@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
-import { existsSync, unlinkSync } from 'fs';
+import { existsSync, unlinkSync, readFileSync } from 'fs';
 import { buildCacheKey } from './lib';
 import { loadConfig, loadEnvFile } from './config';
 import { buildCombinedDiff, buildPrompt, parsePrePushStdin } from './diff';
