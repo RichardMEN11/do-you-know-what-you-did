@@ -33,6 +33,14 @@ Options:
 function handleInstall(debug = false): number {
   const hookPath = getGitPath('hooks/pre-push', debug);
   const contents = '#!/bin/sh\nexec do-you-know-what-you-did run "$@"\n';
+  if (existsSync(hookPath)) {
+    const existing = readFileSync(hookPath, 'utf8');
+    if (existing !== contents) {
+      const backupPath = `${hookPath}.bak`;
+      writeFileSync(backupPath, existing, 'utf8');
+      console.warn(`Existing pre-push hook backed up to ${backupPath}`);
+    }
+  }
   writeFileSync(hookPath, contents, 'utf8');
   chmodSync(hookPath, 0o755);
   console.log(`Installed pre-push hook at ${hookPath}`);

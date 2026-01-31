@@ -1,7 +1,8 @@
 async function isExcluded(path: string, patterns: string[]): Promise<boolean> {
   if (!patterns.length) return false;
   const { minimatch } = await import("minimatch");
-  return patterns.some((pattern) => minimatch(path, pattern, { dot: true }));
+  const normalized = path.replace(/\\/g, "/");
+  return patterns.some((pattern) => minimatch(normalized, pattern, { dot: true }));
 }
 
 export async function filterExcludedFiles(files: string[], patterns: string[]): Promise<string[]> {
