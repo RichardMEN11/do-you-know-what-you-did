@@ -1,12 +1,6 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
-import {
-  chmodSync,
-  existsSync,
-  readFileSync,
-  unlinkSync,
-  writeFileSync,
-} from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 import { buildCacheKey } from './lib';
 import { loadConfig, loadEnvFile } from './config';
 import { buildCombinedDiff, buildPrompt, parsePrePushStdin } from './diff';
@@ -16,6 +10,7 @@ import { runQuiz, startSpinner } from './ui';
 import { getRepoRoot, isInsideWorkTree, runGit, getGitPath } from './git';
 import { Config, PrePushLine } from './types';
 import { Quiz } from './schema';
+import { installPrePushHook } from './hooks';
 
 function printHelp(): void {
   console.log(`do-you-know-what-you-did
@@ -32,34 +27,15 @@ Options:
 
 function handleInstall(debug = false): number {
   const hookPath = getGitPath('hooks/pre-push', debug);
-  const marker = '# do-you-know-what-you-did';
-  const header = '#!/bin/sh\n';
-  const snippet = `${marker}\ndo-you-know-what-you-did run "$@"\n`;
-  if (!existsSync(hookPath)) {
-    writeFileSync(hookPath, `${header}${snippet}`, 'utf8');
-    chmodSync(hookPath, 0o755);
+  const result = installPrePushHook(hookPath);
+  if (result.action === 'created') {
     console.log(`Installed pre-push hook at ${hookPath}`);
-    return 0;
+  } else if (result.action === 'updated') {
+    console.warn(`Existing pre-push hook backed up to ${result.backupPath}`);
+    console.log(`Updated pre-push hook at ${hookPath}`);
+  } else {
+    console.log('Pre-push hook already contains # do-you-know-what-you-did');
   }
-
-  const existing = readFileSync(hookPath, 'utf8');
-  if (existing.includes(marker)) {
-    console.log(`Pre-push hook already contains ${marker}`);
-    return 0;
-  }
-
-  const backupPath = `${hookPath}.bak`;
-  writeFileSync(backupPath, existing, 'utf8');
-  console.warn(`Existing pre-push hook backed up to ${backupPath}`);
-
-  const trimmed = existing.replace(/^\uFEFF?/, '');
-  const hasShebang = trimmed.startsWith('#!');
-  const updated = hasShebang
-    ? `${trimmed.trimEnd()}\n\n${snippet}`
-    : `${trimmed.trimEnd()}\n\n${snippet}`;
-  writeFileSync(hookPath, updated, 'utf8');
-  chmodSync(hookPath, 0o755);
-  console.log(`Updated pre-push hook at ${hookPath}`);
   return 0;
 }
 

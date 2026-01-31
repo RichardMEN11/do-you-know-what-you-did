@@ -101,4 +101,33 @@ describe("loadEnvFile", () => {
       else delete process.env.OPENAI_API_KEY;
     }
   });
+
+  it("supports multiline values and escaped hashes", () => {
+    const dir = makeTempDir();
+    const envPath = join(dir, ".env");
+    writeFileSync(
+      envPath,
+      [
+        "MULTI=hello \\",
+        "world",
+        "HASH=foo\\#bar"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const originalMulti = process.env.MULTI;
+    const originalHash = process.env.HASH;
+    try {
+      delete process.env.MULTI;
+      delete process.env.HASH;
+      loadEnvFile(dir);
+      expect(process.env.MULTI).toBe("hello \nworld");
+      expect(process.env.HASH).toBe("foo#bar");
+    } finally {
+      if (originalMulti !== undefined) process.env.MULTI = originalMulti;
+      else delete process.env.MULTI;
+      if (originalHash !== undefined) process.env.HASH = originalHash;
+      else delete process.env.HASH;
+    }
+  });
 });
