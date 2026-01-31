@@ -51,8 +51,17 @@ export function loadEnvFile(repoRoot: string, debug = false): void {
   try {
     const raw = readFileSync(envPath, 'utf8');
     const lines = raw.split('\n');
+    let carry = '';
     for (const line of lines) {
-      const trimmed = line.trim();
+      const combined = carry ? `${carry}\n${line}` : line;
+      const endsWithContinuation =
+        /\\\s*$/.test(combined) && !/\\{2}\s*$/.test(combined);
+      if (endsWithContinuation) {
+        carry = combined.replace(/\\\s*$/, '');
+        continue;
+      }
+      const trimmed = (carry ? combined : line).trim();
+      carry = '';
       if (!trimmed || trimmed.startsWith('#')) continue;
       const normalized = trimmed.startsWith('export ')
         ? trimmed.slice(7).trim()
@@ -67,7 +76,8 @@ export function loadEnvFile(repoRoot: string, debug = false): void {
       ) {
         value = value.slice(1, -1);
       } else {
-        value = value.replace(/\s+#.*$/, '').trim();
+        value = value.replace(/(^|[^\\])\s+#.*$/, '$1').trim();
+        value = value.replace(/\\#/g, '#');
       }
       if (!process.env[key]) {
         process.env[key] = value;

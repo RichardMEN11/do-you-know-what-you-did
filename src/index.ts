@@ -34,7 +34,7 @@ function handleInstall(debug = false): number {
   const hookPath = getGitPath('hooks/pre-push', debug);
   const marker = '# do-you-know-what-you-did';
   const header = '#!/bin/sh\n';
-  const snippet = `${marker}\nexec do-you-know-what-you-did run "$@"\n`;
+  const snippet = `${marker}\ndo-you-know-what-you-did run "$@"\n`;
   if (!existsSync(hookPath)) {
     writeFileSync(hookPath, `${header}${snippet}`, 'utf8');
     chmodSync(hookPath, 0o755);
@@ -56,7 +56,7 @@ function handleInstall(debug = false): number {
   const hasShebang = trimmed.startsWith('#!');
   const updated = hasShebang
     ? `${trimmed.trimEnd()}\n\n${snippet}`
-    : `${header}${trimmed.trimEnd()}\n\n${snippet}`;
+    : `${trimmed.trimEnd()}\n\n${snippet}`;
   writeFileSync(hookPath, updated, 'utf8');
   chmodSync(hookPath, 0o755);
   console.log(`Updated pre-push hook at ${hookPath}`);
