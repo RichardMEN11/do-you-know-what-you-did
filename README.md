@@ -81,3 +81,9 @@ Generated quizzes are cached at `.git/do-you-know-what-you-did-cache.json` and r
   Set an upstream branch (e.g. `git push -u origin main`) or push once.
 - `Not inside a git worktree. Skipping quiz.`  
   Run inside a git repo.
+
+## Safety, Privacy & Costs
+
+- This tool sends your git diff (after filtering + redaction) to an LLM. Review what’s included and avoid committing secrets.
+- You are responsible for any API costs; the quiz is generated on push unless a cached quiz is used.
+- In CI or non-interactive terminals, the quiz may be skipped (fail-open) depending on config.
