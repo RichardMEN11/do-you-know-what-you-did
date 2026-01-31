@@ -23,6 +23,11 @@ npm link
 do-you-know-what-you-did install
 ```
 
+## Requirements
+
+- Node.js >= 18 (uses built-in `fetch`)
+- Git CLI available on PATH
+
 ## The Magic Ingredient
 
 ```bash
@@ -36,6 +41,12 @@ OPENAI_BASE_URL=https://api.openai.com/v1
 
 ```bash
 do-you-know-what-you-did run
+```
+
+## Version
+
+```bash
+do-you-know-what-you-did --version
 ```
 
 ## I Am In A Hurry
@@ -61,3 +72,12 @@ Create `.do-you-know-what-you-did.json` in the repo root:
 ## Cache
 
 Generated quizzes are cached at `.git/do-you-know-what-you-did-cache.json` and reused for repeat pushes of the same commit range.
+
+## Troubleshooting
+
+- `OPENAI_API_KEY is not set`  
+  Ensure you set it in your shell or add it to `.env` in the repo root.
+- `No upstream found. Skipping quiz.`  
+  Set an upstream branch (e.g. `git push -u origin main`) or push once.
+- `Not inside a git worktree. Skipping quiz.`  
+  Run inside a git repo.

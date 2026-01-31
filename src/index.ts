@@ -22,6 +22,7 @@ Usage:
 
 Options:
   --debug   Print diagnostics (no secrets)
+  --version Print version
 `);
 }
 
@@ -167,6 +168,16 @@ async function main() {
       command === '-h'
     ) {
       printHelp();
+      process.exit(0);
+    }
+
+    if (command === 'version' || command === '--version' || command === '-v') {
+      try {
+        const pkg = require('../package.json') as { version?: string };
+        console.log(pkg.version || 'unknown');
+      } catch {
+        console.log('unknown');
+      }
       process.exit(0);
     }
 
